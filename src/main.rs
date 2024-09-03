@@ -1,3 +1,5 @@
+#![allow(unstable_name_collisions)]
+
 use determinator::{rules::DeterminatorRules, Determinator};
 use guppy::{
     graph::{BuildTarget, BuildTargetKind, DependencyDirection},
@@ -30,43 +32,41 @@ fn main() {
 
     let determinator_set = determinator.compute();
 
-    for package in determinator_set
-        .path_changed_set
-        .packages(DependencyDirection::Forward)
-    {
-        println!("Path changed: {}", package.name());
-    }
-
-    for package in determinator_set
-        .summary_changed_set
-        .packages(DependencyDirection::Forward)
-    {
-        println!("Summary changed: {}", package.name());
-    }
-
     // determinator_set.affected_set contains the workspace packages directly or indirectly affected
     // by the change.
-    for package in determinator_set
+    let cargo_test_targets = determinator_set
         .affected_set
         .packages(DependencyDirection::Forward)
-    {
-        if package.has_test_targets() {
-            println!("should test: {}", package.name());
-        }
-    }
+        .filter(|package| package.has_test_targets())
+        .flat_map(|package| ["-p", package.name()])
+        .collect::<Vec<_>>()
+        .join(" ");
 
-    for package in determinator_set
+    let cargo_build_targets = determinator_set
         .affected_set
         .root_packages(DependencyDirection::Forward)
-    {
-        let targets = package.binary_targets();
-        if !targets.is_empty() {
-            println!("package: {}", package.name());
-            for target in targets {
-                println!("target: {}", target.name());
-            }
-        }
-    }
+        .flat_map(|package| {
+            package
+                .binary_targets()
+                .into_iter()
+                .flat_map(|target| ["--bin".into(), target.name().to_string()])
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    let report = Report {
+        cargo_test_targets,
+        cargo_build_targets,
+    };
+
+    println!("{}", serde_json::to_string(&report).unwrap())
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct Report {
+    cargo_test_targets: String,
+    cargo_build_targets: String,
 }
 
 trait PackageMetadataExt {

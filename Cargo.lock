@@ -541,6 +541,9 @@ version = "0.1.0"
 dependencies = [
  "determinator",
  "guppy",
+ "itertools 0.13.0",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
