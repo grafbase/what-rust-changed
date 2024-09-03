@@ -32,17 +32,25 @@ fn main() {
 
     let determinator_set = determinator.compute();
 
-    // determinator_set.affected_set contains the workspace packages directly or indirectly affected
-    // by the change.
-    let cargo_test_targets = determinator_set
+    let cargo_package_specs = determinator_set
         .affected_set
         .packages(DependencyDirection::Forward)
         .filter(|package| package.has_test_targets())
+        .filter(|package| {
+            // TODO: Make this configurable somehow...
+            package.name() != "grafbase-docker-tests"
+        })
         .flat_map(|package| ["-p", package.name()])
         .collect::<Vec<_>>()
         .join(" ");
 
-    let cargo_build_targets = determinator_set
+    let changed_packages = determinator_set
+        .affected_set
+        .packages(DependencyDirection::Forward)
+        .map(|package| package.name().to_string())
+        .collect();
+
+    let cargo_bin_specs = determinator_set
         .affected_set
         .root_packages(DependencyDirection::Forward)
         .flat_map(|package| {
@@ -55,18 +63,42 @@ fn main() {
         .collect::<Vec<_>>()
         .join(" ");
 
+    let changed_binaries = determinator_set
+        .affected_set
+        .packages(DependencyDirection::Forward)
+        .flat_map(|package| {
+            package
+                .binary_targets()
+                .into_iter()
+                .map(|target| target.name().to_string())
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+
     let report = Report {
-        cargo_test_targets,
-        cargo_build_targets,
+        cargo_package_specs,
+        cargo_bin_specs,
+        changed_packages,
+        changed_binaries,
     };
 
     println!("{}", serde_json::to_string(&report).unwrap())
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct Report {
-    cargo_test_targets: String,
-    cargo_build_targets: String,
+    /// A string that can be passed to cargo to limit its builds to changed packages
+    cargo_package_specs: String,
+
+    /// A string that can be passed to cargo build to limit only to changed binaries
+    cargo_bin_specs: String,
+
+    /// The full list of packages that have changed, useful for other CI filtering purposes
+    changed_packages: Vec<String>,
+
+    /// The full list of binaries that have changed, useful for other CI filtering purposes
+    changed_binaries: Vec<String>,
 }
 
 trait PackageMetadataExt {
