@@ -6,6 +6,9 @@ use guppy::{
     CargoMetadata,
 };
 
+// TODO: Make this configurable via a file once I've finished iterating
+const TESTS_THAT_NEED_DOCKER: &[&str] = &["integration-tests", "grafbase-gateway"];
+
 fn main() {
     let args = std::env::args().collect::<Vec<_>>();
 
@@ -32,7 +35,31 @@ fn main() {
 
     let determinator_set = determinator.compute();
 
-    let cargo_package_specs = determinator_set
+    let cargo_build_specs = determinator_set
+        .affected_set
+        .packages(DependencyDirection::Forward)
+        .filter(|package| {
+            // TODO: Make this configurable somehow...
+            package.name() != "grafbase-docker-tests"
+        })
+        .flat_map(|package| ["-p", package.name()])
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    let cargo_test_specs = determinator_set
+        .affected_set
+        .packages(DependencyDirection::Forward)
+        .filter(|package| package.has_test_targets())
+        .filter(|package| {
+            // TODO: Make this configurable somehow...
+            package.name() != "grafbase-docker-tests"
+        })
+        .filter(|package| !TESTS_THAT_NEED_DOCKER.contains(&package.name()))
+        .flat_map(|package| ["-p", package.name()])
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    let cargo_docker_test_specs = determinator_set
         .affected_set
         .packages(DependencyDirection::Forward)
         .filter(|package| package.has_test_targets())
@@ -76,7 +103,9 @@ fn main() {
         .collect::<Vec<_>>();
 
     let report = Report {
-        cargo_package_specs,
+        cargo_build_specs,
+        cargo_test_specs,
+        cargo_docker_test_specs,
         cargo_bin_specs,
         changed_packages,
         changed_binaries,
@@ -88,8 +117,18 @@ fn main() {
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct Report {
-    /// A string that can be passed to cargo to limit its builds to changed packages
-    cargo_package_specs: String,
+    /// A string that can be passed to cargo build to limit to changed packages
+    cargo_build_specs: String,
+
+    /// A string that can be passed to cargo test to limit to changed packages
+    ///
+    /// This one should be used for platforms that do not support docker
+    cargo_test_specs: String,
+
+    /// A string that can be passed to cargo test to limit to changed packages
+    ///
+    /// This one should be used for platforms that support docker
+    cargo_docker_test_specs: String,
 
     /// A string that can be passed to cargo build to limit only to changed binaries
     cargo_bin_specs: String,
