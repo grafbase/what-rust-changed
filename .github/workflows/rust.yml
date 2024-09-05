@@ -28,9 +28,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Check formatting
-        shell: cargo
+        shell: bash
         run: cargo fmt --check
 
       - name: Build
-        shell: cargo
+        shell: bash
         run: cargo build
