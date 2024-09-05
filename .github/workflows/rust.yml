@@ -1,0 +1,36 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  COLUMNS: 250
+  CARGO_INCREMENTAL: 0
+  RUSTFLAGS: "-W rust-2021-compatibility -D warnings"
+  RUST_BACKTRACE: short
+  NEXTEST_PROFILE: ci
+  CI: 1
+
+jobs:
+  build-rust:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@1.80.1
+        with:
+          components: rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        shell: bash
+        run: cargo fmt --check
+
+      - name: Build
+        shell: bash
+        run: cargo build
