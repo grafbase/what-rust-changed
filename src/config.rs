@@ -15,6 +15,7 @@ fn do_load() -> Option<Config> {
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
 pub struct Config {
     /// Packages that shouldn't automatically be included in test runs
     pub ignore_test_packages: Vec<String>,
