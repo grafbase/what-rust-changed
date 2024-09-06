@@ -3,6 +3,8 @@
 mod config;
 mod guppy_ext;
 
+use std::ffi::OsString;
+
 use determinator::Determinator;
 use guppy::{graph::DependencyDirection, CargoMetadata};
 use guppy_ext::PackageMetadataExt;
@@ -34,32 +36,48 @@ pub struct Report {
 }
 
 fn main() {
-    let args = std::env::args().collect::<Vec<_>>();
+    let mut config = config::load();
 
-    let config = config::load();
+    let mut args = pico_args::Arguments::from_env();
 
-    eprintln!("Comparing metadata from {} to {}", &args[1], &args[2]);
+    if args.contains("--mark-all-changed") {
+        config.mark_all_changed();
+    }
+
+    let old_metadata_path = args.free_from_str::<String>().unwrap();
+    let current_metadata_path = args.free_from_str::<String>().unwrap();
+    let changed_files = args
+        .finish()
+        .into_iter()
+        .map(OsString::into_string)
+        .map(Result::unwrap)
+        .collect::<Vec<_>>();
+
+    eprintln!(
+        "Comparing metadata from {} to {}",
+        old_metadata_path, current_metadata_path
+    );
 
     // guppy accepts `cargo metadata` JSON output. Use a pre-existing fixture for these examples.
     let old_metadata =
-        CargoMetadata::parse_json(std::fs::read_to_string(&args[1]).unwrap()).unwrap();
+        CargoMetadata::parse_json(std::fs::read_to_string(old_metadata_path).unwrap()).unwrap();
     let old = old_metadata.build_graph().unwrap();
-    let new_metadata =
-        CargoMetadata::parse_json(std::fs::read_to_string(&args[2]).unwrap()).unwrap();
-    let new = new_metadata.build_graph().unwrap();
+    let current_metadata =
+        CargoMetadata::parse_json(std::fs::read_to_string(current_metadata_path).unwrap()).unwrap();
+    let new = current_metadata.build_graph().unwrap();
 
     let mut determinator = Determinator::new(&old, &new);
 
     determinator.set_rules(&config.determinator_rules).unwrap();
 
     eprintln!("Changed files:");
-    for path in &args[3..] {
+    for path in &changed_files {
         eprintln!("- {path}");
     }
     eprintln!();
 
     // The determinator expects a list of changed files to be passed in.
-    determinator.add_changed_paths(&args[3..]);
+    determinator.add_changed_paths(&changed_files);
 
     let determinator_set = determinator.compute();
 
