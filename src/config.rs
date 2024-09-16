@@ -18,10 +18,12 @@ fn do_load() -> Option<Config> {
 #[serde(rename_all = "kebab-case")]
 pub struct Config {
     /// Packages that shouldn't automatically be included in test runs
+    #[serde(default)]
     pub ignore_test_packages: Vec<String>,
 
     /// Packages that require docker for their tests and should be put
     /// into a separate section of the output
+    #[serde(default)]
     pub docker_test_packages: Vec<String>,
 
     #[serde(flatten)]
