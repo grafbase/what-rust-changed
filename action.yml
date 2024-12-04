@@ -1,0 +1,121 @@
+name: Run what-rust-changed
+description: Determines which rust projects in a workspace have changed
+inputs:
+  base:
+    description: "The base ref to use for comparisons.  Usually the PR base or the before of a push"
+    required: true
+  config:
+    description: "Optional config file for what-rust-changed"
+    required: false
+  version:
+    description: "Which version of what-rust-changed to use.  The default should usually suffice"
+    required: false
+    default: "v0.1.0"
+outputs:
+  # These 2 are JSON lists (encoded as strings because github actions, sigh)
+  blah:
+    value: ${{ steps.what-rust-changed.outputs.rust }}
+  # changed-packages:
+  #   description: A JSON list of the packages that have changed
+  #   value: ${{ toJson(fromJson(steps.what-rust-changed.outputs.rust).changed-packages) }}
+  # changed-binaries:
+  #   description: A JSON list of the binaries that have changed
+  #   value: ${{ toJson(fromJson(steps.what-rust-changed.outputs.rust).changed-binaries) }}
+
+  # # These 4 are Strings
+  # cargo-build-specs:
+  #   description: A string suitable for passing to cargo that builds all the changed packages
+  #   value: ${{ fromJson(steps.what-rust-changed.outputs.rust).cargo-build-specs }}
+  # cargo-test-specs:
+  #   description: A string suitable for passing to cargo test that includes all the changed packages but not the docker-tests
+  #   value: ${{ fromJson(steps.what-rust-changed.outputs.rust).cargo-test-specs }}
+  # cargo-docker-test-specs:
+  #   description: A string suitable for passing to cargo test that includes all the changed packages including the docker-tests
+  #   value: ${{ fromJson(steps.what-rust-changed.outputs.rust).cargo-docker-test-specs }}
+  # cargo-bin-specs:
+  #   description: A string suitable for passing to cargo that builds all the changed binaries
+  #   value: ${{ fromJson(steps.what-rust-changed.outputs.rust).cargo-bin-specs }}
+  changed-packages:
+    description: A JSON list of the packages that have changed
+    value: ${{ steps.what-rust-changed.outputs.changed-packages }}
+  changed-binaries:
+    description: A JSON list of the binaries that have changed
+    value: ${{ steps.what-rust-changed.outputs.changed-binaries }}
+
+  # These 4 are Strings
+  cargo-build-specs:
+    description: A string suitable for passing to cargo that builds all the changed packages
+    value: ${{ steps.what-rust-changed.outputs.cargo-build-specs }}
+  cargo-test-specs:
+    description: A string suitable for passing to cargo test that includes all the changed packages but not the docker-tests
+    value: ${{ steps.what-rust-changed.outputs.rust.cargo-test-specs }}
+  cargo-docker-test-specs:
+    description: A string suitable for passing to cargo test that includes all the changed packages including the docker-tests
+    value: ${{ steps.what-rust-changed.outputs.cargo-docker-test-specs }}
+  cargo-bin-specs:
+    description: A string suitable for passing to cargo that builds all the changed binaries
+    value: ${{ steps.what-rust-changed.outputs.cargo-bin-specs }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Cargo cache
+      uses: actions/cache@v4
+      continue-on-error: false
+      with:
+        key: what-rust-changed-${{ inputs.version }}
+        save-always: true
+        path: |
+          ~/.local/what-rust-changed/
+
+    # If you're iterating on this you may want to change this to a cargo install
+    # while you work
+    - name: Install what-rust-changed
+      shell: bash
+      run: |
+        if [ ! -f ~/.local/what-rust-changed/what-rust-changed ]; then
+          mkdir -p ~/.local/what-rust-changed
+          curl -L https://github.com/grafbase/what-rust-changed/releases/download/${{ inputs.version }}/what-rust-changed-x86_64-unknown-linux-gnu.tar.gz --output ~/.local/what-rust-changed/wrc.tar.gz
+          cd ~/.local/what-rust-changed
+          tar xfv wrc.tar.gz
+          rm wrc.tar.gz
+        fi
+        echo "$HOME/.local/what-rust-changed" >> $GITHUB_PATH
+
+    - name: Run what-rust-changed
+      id: what-rust-changed
+      shell: bash
+      env:
+        WHAT_RUST_CHANGED_CONFIG: ${{ inputs.config }}
+        BASE_REF: remotes/origin/${{ inputs.base }}
+      run: |
+        HEAD_REF=$(git rev-parse HEAD)
+        set -euo pipefail
+        echo "Head: $HEAD_REF"
+        echo "Base: $BASE_REF"
+        MERGE_BASE=$(git merge-base $BASE_REF $HEAD_REF)
+        echo "Merge Base: $MERGE_BASE"
+        git checkout $MERGE_BASE
+        cargo metadata > /tmp/base.metadata.json
+        git checkout $HEAD_REF
+        cargo metadata --locked > /tmp/target.metadata.json
+        CHANGED_FILES=$(git diff --no-commit-id --name-only -r $MERGE_BASE HEAD)
+        CHANGES=$(echo $CHANGED_FILES | xargs what-rust-changed /tmp/base.metadata.json /tmp/target.metadata.json)
+        echo "Changes: $CHANGES"
+
+        echo "rust=$CHANGES" >> "$GITHUB_OUTPUT"
+
+        echo "changed-packages=$(echo $CHANGES | jq -c .[\"changed-packages\"])" >> "$GITHUB_OUTPUT"
+        echo "changed-binaries=$(echo $CHANGES | jq -c .[\"changed-binaries\"])" >> "$GITHUB_OUTPUT"
+
+        echo "cargo-build-specs=$(echo $CHANGES | jq -r .[\"cargo-build-specs\"])" >> "$GITHUB_OUTPUT"
+        echo "cargo-test-specs=$(echo $CHANGES | jq -r .[\"cargo-test-specs\"])" >> "$GITHUB_OUTPUT"
+        echo "cargo-docker-test-specs=$(echo $CHANGES | jq -r .[\"cargo-docker-test-specs\"])" >> "$GITHUB_OUTPUT"
+        echo "cargo-bin-specs=$(echo $CHANGES | jq -r .[\"cargo-bin-specs\"])" >> "$GITHUB_OUTPUT"
+
+    - name: Debug shit
+      shell: bash
+      env:
+        BLAH: ${{ steps.what-rust-changed.outputs.rust }}
+      run: |
+        echo $BLAH
