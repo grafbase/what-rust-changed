@@ -15,26 +15,6 @@ outputs:
   # These 2 are JSON lists (encoded as strings because github actions, sigh)
   blah:
     value: ${{ steps.what-rust-changed.outputs.rust }}
-  # changed-packages:
-  #   description: A JSON list of the packages that have changed
-  #   value: ${{ toJson(fromJson(steps.what-rust-changed.outputs.rust).changed-packages) }}
-  # changed-binaries:
-  #   description: A JSON list of the binaries that have changed
-  #   value: ${{ toJson(fromJson(steps.what-rust-changed.outputs.rust).changed-binaries) }}
-
-  # # These 4 are Strings
-  # cargo-build-specs:
-  #   description: A string suitable for passing to cargo that builds all the changed packages
-  #   value: ${{ fromJson(steps.what-rust-changed.outputs.rust).cargo-build-specs }}
-  # cargo-test-specs:
-  #   description: A string suitable for passing to cargo test that includes all the changed packages but not the docker-tests
-  #   value: ${{ fromJson(steps.what-rust-changed.outputs.rust).cargo-test-specs }}
-  # cargo-docker-test-specs:
-  #   description: A string suitable for passing to cargo test that includes all the changed packages including the docker-tests
-  #   value: ${{ fromJson(steps.what-rust-changed.outputs.rust).cargo-docker-test-specs }}
-  # cargo-bin-specs:
-  #   description: A string suitable for passing to cargo that builds all the changed binaries
-  #   value: ${{ fromJson(steps.what-rust-changed.outputs.rust).cargo-bin-specs }}
   changed-packages:
     description: A JSON list of the packages that have changed
     value: ${{ steps.what-rust-changed.outputs.changed-packages }}
