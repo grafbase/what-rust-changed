@@ -28,7 +28,7 @@ outputs:
     value: ${{ steps.what-rust-changed.outputs.cargo-build-specs }}
   cargo-test-specs:
     description: A string suitable for passing to cargo test that includes all the changed packages but not the docker-tests
-    value: ${{ steps.what-rust-changed.outputs.rust.cargo-test-specs }}
+    value: ${{ steps.what-rust-changed.outputs.cargo-test-specs }}
   cargo-docker-test-specs:
     description: A string suitable for passing to cargo test that includes all the changed packages including the docker-tests
     value: ${{ steps.what-rust-changed.outputs.cargo-docker-test-specs }}
