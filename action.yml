@@ -10,7 +10,7 @@ inputs:
   version:
     description: "Which version of what-rust-changed to use.  The default should usually suffice"
     required: false
-    default: "v0.1.0"
+    default: "v0.2.1"
 outputs:
   # These 2 are JSON lists (encoded as strings because github actions, sigh)
   blah:
@@ -67,12 +67,13 @@ runs:
       shell: bash
       env:
         WHAT_RUST_CHANGED_CONFIG: ${{ inputs.config }}
-        BASE_REF: remotes/origin/${{ inputs.base }}
+        BASE_REF: ${{ inputs.base }}
       run: |
         HEAD_REF=$(git rev-parse HEAD)
         set -euo pipefail
         echo "Head: $HEAD_REF"
         echo "Base: $BASE_REF"
+        git checkout "$BASE_REF"
         MERGE_BASE=$(git merge-base $BASE_REF $HEAD_REF)
         echo "Merge Base: $MERGE_BASE"
         git checkout $MERGE_BASE
