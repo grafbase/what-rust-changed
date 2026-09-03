@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 determinator = "0.12"
-guppy = "0.17"
+guppy = "0.18"
 itertools = "0.13"
 serde = "1"
 serde_json = "1"
