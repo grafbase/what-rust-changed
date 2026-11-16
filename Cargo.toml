@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-determinator = "0.12"
+determinator = "0.13"
 guppy = "0.17"
 itertools = "0.13"
 serde = "1"
